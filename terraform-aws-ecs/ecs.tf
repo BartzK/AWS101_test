@@ -46,7 +46,7 @@ resource "aws_ecs_task_definition" "aws101-ecs-task-definition" {
     "memory": 256,
     "cpu": 256,
     "essential": true,
-    "entryPoint": ["/"],
+    "entryPoint": [],
     "portMappings": [
       {
         "containerPort": 80,
