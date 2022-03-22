@@ -1,0 +1,27 @@
+version: 0.2
+    
+phases:
+  install:
+    runtime-versions:
+      dotnet: 6.0
+   
+  pre_build:
+    commands:
+      - echo Restore started on `date`
+      - dotnet restore AWS101/AWS101.csproj
+      
+  build:
+    commands:
+      - echo Build started on `date`
+      - dotnet build AWS101/AWS101.csproj
+      - echo AWS101 started on `date`
+      - dotnet AWS101 AWS101/AWS101.csproj
+      
+  post_build:
+    commands:
+      - echo Publish started on `date`
+      - dotnet publish -c Release -o ./ AWS101/AWS101.csproj
+      
+artifacts:
+  files:
+    - ./**/*
