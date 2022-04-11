@@ -2,24 +2,31 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 3.27"
+      version = "4.8.0"
     }
   }
-
-  required_version = ">= 0.14.9"
 }
 
 provider "aws" {
   profile = "default"
-  region  = "us-east-1"
+  region  = "eu-central-1"
 }
 
-resource "aws_ecr_repository" "aws101-repository" {
-  name                 = "aws101-repo"
-  image_tag_mutability = "IMMUTABLE"
+variable "vpc_id" {
+  type    = string
+  default = "vpc-0fead40e24304ce5f"
 }
 
-resource "aws_ecr_repository_policy" "aws101-repo-policy" {
+variable "user_prefix" {
+  type    = string
+  default = "bk"
+}
+
+resource "aws_ecr_repository" "ecr" {
+  name = "${var.user_prefix}-repository"
+}
+
+resource "aws_ecr_repository_policy" "bk-repo-policy" {
   repository = aws_ecr_repository.aws101-repository.name
   policy     = <<EOF
   {
