@@ -26,6 +26,36 @@ data "aws_vpc" "vpc" {
   id = var.vpc_id
 }
 
+resource "aws_ecr_repository" "ecr" {
+  name = "${var.user_prefix}-repository"
+}
+
+resource "aws_ecr_repository_policy" "repo-policy" {
+  repository = aws_ecr_repository.ecr.name
+  policy     = <<EOF
+  {
+    "Version": "2008-10-17",
+    "Statement": [
+      {
+        "Sid": "adds full ecr access to the aws101 repository",
+        "Effect": "Allow",
+        "Principal": "*",
+        "Action": [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:CompleteLayerUpload",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:GetLifecyclePolicy",
+          "ecr:InitiateLayerUpload",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
+        ]
+      }
+    ]
+  }
+  EOF
+}
+
 resource "aws_iam_role" "ecsTaskExecutionRole" {
   name               = "${var.user_prefix}-execution-task-role"
   assume_role_policy = data.aws_iam_policy_document.assume_role_policy.json
@@ -47,29 +77,33 @@ resource "aws_iam_role_policy_attachment" "ecsTaskExecutionRole_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceforEC2Role"
 }
 
-resource "aws_ecs_cluster" "ecs-cluster" {
-  name = "${var.user_prefix}-cluster"
-}
-
-resource "aws_ecs_cluster_capacity_providers" "ecs-cluster" {
-  cluster_name = aws_ecs_cluster.ecs.name
-
-  capacity_providers = ["EC2"]
-
-  default_capacity_provider_strategy {
-    base              = 1
-    weight            = 10
-    capacity_provider = "EC2"
-  }
+resource "aws_iam_instance_profile" "instance_profile" {
+  name = "bk-instance-profile"
+  role = aws_iam_role.ecsTaskExecutionRole.name
 }
 
 resource "aws_instance" "app_server" {
-    ami                          = "ami-830c94e3"
+    ami                          = "ami-0143f2b57717ab830"
     associate_public_ip_address  = true
     instance_type                = "t2.micro"
+	iam_instance_profile         = aws_iam_instance_profile.instance_profile.name
     tags                         = {
         "Name" = "bk-instance"
     }
+	
+	user_data = <<EOF
+	#!/bin/bash
+	echo ECS_CLUSTER=${aws_ecs_cluster.ecs-cluster.name} >> /ets/ecs/ecs.config
+	EOF
+
+}
+
+resource "aws_ecs_cluster" "ecs-cluster" {
+  name = "${var.user_prefix}-ecs-cluster"
+  setting {
+    name = "containerInsights"
+	value = "enabled"
+  }
 }
 
 resource "aws_ecs_task_definition" "ecs-task-definition" {
@@ -87,6 +121,7 @@ resource "aws_ecs_task_definition" "ecs-task-definition" {
       "image": "${aws_ecr_repository.ecr.repository_url}/${var.user_prefix}-repository:latest",
       "memory": 256,
       "cpu": 256,
+      "networkMode": "awsvpc",
       "essential": true,
       "portMappings": [
         {
@@ -108,6 +143,10 @@ resource "aws_ecs_service" "ecs-service" {
   cluster         = aws_ecs_cluster.ecs-cluster.id
   task_definition = aws_ecs_task_definition.ecs-task-definition.arn
   launch_type     = "EC2"
-  desired_count = 1
+  desired_count   = 1
+  
+  network_configuration {
+    subnets        = ["subnet-020c346673e0afe4f"]
+    security_groups = ["sg-0f7ef34ae71da89ef"]
+  }
 }
-
