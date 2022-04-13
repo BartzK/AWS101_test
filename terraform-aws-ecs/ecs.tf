@@ -65,11 +65,19 @@ resource "aws_ecr_repository_policy" "repo-policy" {
 }
 
 resource "aws_security_group" "bk-security-group" {
+  name = "${var.user_prefix}-security-group"
   vpc_id = data.aws_vpc.vpc.id
 
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  ingress {
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -165,7 +173,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
 resource "aws_ecs_task_definition" "ecs-task-definition" {
   family                   = "${var.user_prefix}-definition"
   memory                   = "512"
-  cpu                      = "1vcpu"
+  cpu                      = "1024"
   execution_role_arn       = aws_iam_role.ecs-instance-role.arn
   task_role_arn            = aws_iam_role.ecs-instance-role.arn
   container_definitions    = <<DEFINITION
